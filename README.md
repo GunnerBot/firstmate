@@ -6,16 +6,6 @@
       alt="Platform"
       src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-blue?style=flat-square"
   /></a>
-  <a href="https://x.com/kunchenguid"
-    ><img
-      alt="X"
-      src="https://img.shields.io/badge/X-@kunchenguid-black?style=flat-square"
-  /></a>
-  <a href="https://discord.gg/Wsy2NpnZDu"
-    ><img
-      alt="Discord"
-      src="https://img.shields.io/discord/1439901831038763092?style=flat-square&label=discord"
-  /></a>
 </p>
 
 <h3 align="center">Talk to one agent. Ship with a crew.</h3>
@@ -59,7 +49,7 @@ The first mate detects and offers to install everything else.
 
 ```sh
 gh auth login
-git clone https://github.com/kunchenguid/firstmate
+git clone https://github.com/GunnerBot/firstmate
 cd firstmate && claude   # launch your harness here; AGENTS.md takes over
 ```
 

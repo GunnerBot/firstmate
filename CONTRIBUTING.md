@@ -55,6 +55,12 @@ Local `.no-mistakes/` state and test evidence stay out of this repo; `.no-mistak
 
 Check and test the toolbelt before pushing:
 
+> **Requires bash 4+ (CI uses 5.x).** The behavior tests and some helper heredocs
+> rely on bash 4/5 parsing; macOS ships bash 3.2 as `/bin/bash`, which mis-parses
+> them and fails the suite. On macOS install a modern bash (`brew install bash`)
+> and run the tests with it, e.g. `/opt/homebrew/bin/bash tests/<name>.test.sh` or
+> put it first on `PATH`. Linux distros already ship bash 4+.
+
 ```sh
 bash -n bin/*.sh                          # syntax-check the toolbelt
 shellcheck bin/*.sh tests/*.sh            # lint the toolbelt and behavior tests; CI enforces this

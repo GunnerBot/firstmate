@@ -325,6 +325,12 @@ Then classify readiness:
 Keep dependency judgment coarse: same repo plus overlapping area means serialize; everything else runs parallel.
 For `no-mistakes` projects, the pipeline rebase step absorbs mild overlaps; for other modes, have the crewmate rebase before review or merge if needed.
 
+**Plan for width, not depth.** When decomposing a multi-task feature, prefer many independent, disjoint-scope nodes over a deep dependency chain: independent nodes become concurrent crewmates, and the serial critical path is what actually costs wall-clock. A single task is just a one-node DAG - the same planning applies trivially. Record each node in `data/backlog.md` with its `blocked-by:` deps and, when helpful, an optional `scope: <path|glob> ...` annotation (after any `blocked-by:` clause) naming the files it touches.
+Use `bin/fm-dag.sh` to plan and dispatch from the backlog rather than eyeballing it:
+- `bin/fm-dag.sh ready` prints the current parallel frontier - every queued task whose blockers are all Done. Spawn that whole frontier at once (there is no concurrency cap); do not trickle tasks out one at a time.
+- `bin/fm-dag.sh plan` shows the wave schedule (max parallel width vs serial depth) and warns when two nodes that would run in the same wave have overlapping `scope:` - those must be serialized with a `blocked-by` or they collide in parallel. A "fully serial" note flags a chain that should be decomposed wider.
+Re-run `bin/fm-dag.sh ready` on every teardown/heartbeat to pick up the newly-unblocked frontier.
+
 Write the brief per section 11.
 
 ### Spawn

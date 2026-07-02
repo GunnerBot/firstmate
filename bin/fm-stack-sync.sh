@@ -35,7 +35,13 @@ for a in "$@"; do
   case "$a" in
     --parent-merged) MERGED=1 ;;
     -*) echo "usage: fm-stack-sync.sh <child-id> [--parent-merged]" >&2; exit 2 ;;
-    *) [ -z "$ID" ] && ID=$a || { echo "usage: fm-stack-sync.sh <child-id> [--parent-merged]" >&2; exit 2; } ;;
+    *)
+      if [ -z "$ID" ]; then
+        ID=$a
+      else
+        echo "usage: fm-stack-sync.sh <child-id> [--parent-merged]" >&2; exit 2
+      fi
+      ;;
   esac
 done
 [ -n "$ID" ] || { echo "usage: fm-stack-sync.sh <child-id> [--parent-merged]" >&2; exit 2; }

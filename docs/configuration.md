@@ -8,7 +8,7 @@ The shared orchestrator behavior lives in [`AGENTS.md`](../AGENTS.md) - edit it 
 
 ## Backlog backend (.tasks.toml / tasks-axi)
 
-The tracked `.tasks.toml` pins the optional `tasks-axi` markdown backend to `data/backlog.md`, with `done_keep = 10` and an archive at `data/done-archive.md`.
+The tracked `.tasks.toml` pins the `tasks-axi` markdown backend to `data/backlog.md`, with `done_keep = 10` and an archive at `data/done-archive.md`.
 When compatible `tasks-axi` is on `PATH`, firstmate uses its verbs for routine backlog mutations and keeps secondmate transfers behind `fm-backlog-handoff.sh` validation; without it, backlog bookkeeping remains manual.
 Compatible means the shared bootstrap probe accepts `tasks-axi --version` as 0.1.1 or newer.
 
@@ -51,9 +51,9 @@ Launch mechanics, including the verified command templates, live in [`bin/fm-spa
 
 ## Toolchain
 
-On first launch the first mate detects what its required toolchain is missing or too old (tmux, node, gh, treehouse with durable lease support, no-mistakes v1.31.2 or newer, gh-axi, chrome-devtools-axi, lavish-axi), lists it with the exact install commands, and installs only after you say go.
-When X mode is opted in, bootstrap also requires `curl` and `jq` before arming the relay poll shim.
-If compatible `tasks-axi` is already on `PATH`, bootstrap records it as an optional capability fact and firstmate uses its verbs for routine backlog mutations; when it is absent or incompatible, firstmate keeps hand-editing `data/backlog.md` exactly as before.
+On first launch the first mate detects what its required toolchain is missing or too old (tmux, node, gh, jq, treehouse with durable lease support, no-mistakes v1.31.2 or newer, gh-axi, chrome-devtools-axi, lavish-axi, tasks-axi v0.1.1 or newer, and a bash 4+ on `PATH` for the test suite), lists it with the exact install commands, and installs only after you say go.
+When X mode is opted in, bootstrap also requires `curl` before arming the relay poll shim (`jq` is already part of the default suite).
+If compatible `tasks-axi` is on `PATH`, bootstrap records it as a capability fact and firstmate uses its verbs for routine backlog mutations; when it is absent or incompatible, bootstrap reports it as missing but firstmate keeps hand-editing `data/backlog.md` exactly as before - the install is recommended, never blocking.
 Bootstrap also reports a `TANGLE:` line when `FM_ROOT` is on a named non-default branch; follow the printed checkout remediation rather than treating it as an installable tool problem.
 Bootstrap also runs a best-effort project clone refresh through `fm-fleet-sync.sh`.
 It emits `FLEET_SYNC:` for skipped refreshes that may matter, recovered self-heals, and `STUCK:` alarms; local-only and no-origin skips stay silent.

@@ -24,9 +24,14 @@
 #          "treehouse get --lease" support.
 #          no-mistakes is also MISSING when its installed version is older than
 #          1.31.2.
-#          tasks-axi is an OPTIONAL backlog-management capability reported only
-#          when tasks-axi --version is 0.1.1 or newer. It is never a MISSING
-#          line and never prompts an install.
+#          tasks-axi is part of the enforced suite: MISSING when absent or when
+#          tasks-axi --version is older than 0.1.1, and "TASKS_AXI: available"
+#          when compatible. Absence stays non-blocking - the backlog falls back
+#          to hand-editing (AGENTS.md section 10).
+#          bash is MISSING when no PATH bash reports version 4 or newer (the
+#          test suite requires bash 4+; macOS ships 3.2).
+#          jq is always part of the enforced suite (it was previously checked
+#          only when X mode was opted in).
 #          X mode is OPTIONAL and inert unless FM_HOME/.env has a non-empty
 #          FMX_PAIRING_TOKEN. When opted in, bootstrap requires curl+jq, writes
 #          the relay poll shim and 30s cadence config, and prints an FMX line.
@@ -131,15 +136,16 @@ secondmate_sync() {
 
 install_cmd() {
   case "$1" in
-    tmux|node|gh|curl|jq) echo "brew install $1  # or the platform's package manager" ;;
+    tmux|node|gh|curl|jq|bash) echo "brew install $1  # or the platform's package manager" ;;
     treehouse) echo "curl -fsSL https://kunchenguid.github.io/treehouse/install.sh | sh" ;;
     no-mistakes) echo "curl -fsSL https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh | sh" ;;
     gh-axi|chrome-devtools-axi|lavish-axi) echo "npm install -g $1 && $1 setup hooks" ;;
+    tasks-axi) echo "npm install -g tasks-axi" ;;
     *) return 1 ;;
   esac
 }
 
-TOOLS="tmux node gh treehouse no-mistakes gh-axi chrome-devtools-axi lavish-axi"
+TOOLS="tmux node gh jq treehouse no-mistakes gh-axi chrome-devtools-axi lavish-axi"
 NO_MISTAKES_MIN_MAJOR=1
 NO_MISTAKES_MIN_MINOR=31
 NO_MISTAKES_MIN_PATCH=2
@@ -165,6 +171,15 @@ no_mistakes_compatible() {
   [ "$minor" -gt "$NO_MISTAKES_MIN_MINOR" ] && return 0
   [ "$minor" -eq "$NO_MISTAKES_MIN_MINOR" ] || return 1
   [ "$patch" -ge "$NO_MISTAKES_MIN_PATCH" ]
+}
+
+# The test suite needs bash 4+ (macOS ships 3.2). Checks the PATH-resolved bash,
+# not the interpreter running this script, so a brew bash earlier on PATH counts.
+bash4_available() {
+  local line major
+  line=$(bash --version 2>/dev/null | head -n 1) || return 1
+  major=$(printf '%s\n' "$line" | sed -nE 's/[^0-9]*([0-9]+)\..*/\1/p')
+  [ -n "$major" ] && [ "$major" -ge 4 ]
 }
 
 # Write CONTENT to DEST only when it differs, so re-running bootstrap does not
@@ -219,7 +234,8 @@ x_mode_setup() {
   missing=0
   for tool in curl jq; do
     if ! command -v "$tool" >/dev/null 2>&1; then
-      echo "MISSING: $tool (install: $(install_cmd "$tool"))"
+      # jq is already reported by the main TOOLS loop; avoid a duplicate line.
+      [ "$tool" = jq ] || echo "MISSING: $tool (install: $(install_cmd "$tool"))"
       missing=1
     fi
   done
@@ -289,6 +305,8 @@ fi
 if command -v no-mistakes >/dev/null 2>&1 && ! no_mistakes_compatible; then
   echo "MISSING: no-mistakes (install: $(install_cmd no-mistakes))"
 fi
+bash4_available || echo "MISSING: bash (install: $(install_cmd bash))"
+fm_tasks_axi_compatible || echo "MISSING: tasks-axi (install: $(install_cmd tasks-axi))"
 gh auth status >/dev/null 2>&1 || echo "NEEDS_GH_AUTH"
 # Worktree-tangle check: the firstmate primary checkout (FM_ROOT) must sit on its
 # default branch, not a feature branch (see fm-tangle-lib.sh). Scoped to the

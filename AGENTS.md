@@ -331,6 +331,8 @@ Use `bin/fm-dag.sh` to plan and dispatch from the backlog rather than eyeballing
 - `bin/fm-dag.sh plan` shows the wave schedule (max parallel width vs serial depth) and warns when two nodes that would run in the same wave have overlapping `scope:` - those must be serialized with a `blocked-by` or they collide in parallel. A "fully serial" note flags a chain that should be decomposed wider.
 Re-run `bin/fm-dag.sh ready` on every teardown/heartbeat to pick up the newly-unblocked frontier.
 
+**Stacked children.** When a child node is deliberately cut from a parent's branch instead of the default branch (a stacked PR), record `parent=<parent-id>` and `parent_tip=<sha>` (the parent branch tip it was cut from) in the child's `state/<id>.meta`, optionally `parent_branch=` if it is not `fm/<parent>`. Keep the child synced with `bin/fm-stack-sync.sh` rather than hand-rolling rebases: `bin/fm-stack-sync.sh <child>` restacks it onto the parent's new tip when the parent branch advances (review fixes) and updates `parent_tip`; `bin/fm-stack-sync.sh <child> --parent-merged` restacks it off the merged parent onto the default branch using the recorded tip (squash-merge safe) and retargets the child PR base. On a conflict it aborts cleanly and prints the resolve steps for the child worktree. Prefer independent disjoint-scope nodes over stacking; reserve stacks for genuinely dependent work.
+
 Write the brief per section 11.
 
 ### Spawn
@@ -432,6 +434,7 @@ After a successful PR-based teardown, it also runs `bin/fm-fleet-sync.sh` for th
 Unsafe drift is reported as `STUCK:` and left untouched.
 Then update the backlog using the teardown reminder: run `tasks-axi done` when the compatible tool is available, otherwise move the task to Done in `data/backlog.md` manually with the full `https://...` PR URL or local merge note and date and keep Done to the 10 most recent.
 Re-evaluate the queue and dispatch only queued work whose blockers are gone and whose time/date gate, if any, has arrived.
+If the merged task was the parent of any stacked child (a child whose `state/<id>.meta` records `parent=<this-id>`), restack each such child before dispatching it: `bin/fm-stack-sync.sh <child> --parent-merged` rebases it off the merged parent onto the default branch and retargets its PR base.
 
 ### Secondmate teardown (explicit only)
 

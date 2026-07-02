@@ -222,6 +222,13 @@ EOF
     ;;
 esac
 
+# Best-effort repo-toolchain enrichment for the brief. Never gates: an unknown
+# stack or a missing clone yields a "not auto-detected" block and the crewmate
+# proceeds on its native flow unchanged. fm-framework-detect always exits 0, but
+# guard anyway so a detect hiccup can never fail brief scaffolding.
+PROJECTS=${FM_PROJECTS_OVERRIDE:-$FM_HOME/projects}
+TOOLCHAIN=$("$FM_ROOT/bin/fm-framework-detect.sh" "$PROJECTS/$REPO" 2>/dev/null || true)
+
 cat > "$BRIEF" <<EOF
 You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
 
@@ -236,6 +243,9 @@ The path check is authoritative: \`git rev-parse --git-dir\` and \`git rev-parse
 If the top-level path is the primary checkout or not the worktree you were launched in, STOP - do not branch or commit here - append \`blocked: launched in primary checkout, not an isolated worktree\` to the status file and stop.
 
 1. First action: create your branch: \`git checkout -b fm/$ID\`$SETUP2
+
+# Repo toolchain
+$TOOLCHAIN
 
 # Rules
 $RULE1

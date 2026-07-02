@@ -71,7 +71,7 @@ CHILD_BRANCH="fm/$ID"
 [ -n "$PARENT_BRANCH" ] || PARENT_BRANCH="fm/$PARENT"
 
 if [ -z "$PARENT" ]; then echo "no parent recorded for $ID; nothing to sync"; exit 0; fi
-[ -n "$WT" ] && [ -d "$WT" ] || { echo "error: worktree for $ID missing ($WT)" >&2; exit 1; }
+if [ -z "$WT" ] || [ ! -d "$WT" ]; then echo "error: worktree for $ID missing ($WT)" >&2; exit 1; fi
 [ -n "$PARENT_TIP" ] || { echo "error: no parent_tip recorded for $ID" >&2; exit 1; }
 
 default_branch() {

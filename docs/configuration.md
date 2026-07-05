@@ -51,7 +51,7 @@ Launch mechanics, including the verified command templates, live in [`bin/fm-spa
 
 ## Toolchain
 
-On first launch the first mate detects what its required toolchain is missing or too old (tmux, node, gh, jq, treehouse with durable lease support, no-mistakes v1.31.2 or newer, gh-axi, chrome-devtools-axi, lavish-axi, tasks-axi v0.1.1 or newer, and a bash 4+ on `PATH` for the test suite), lists it with the exact install commands, and installs only after you say go.
+On first launch the first mate detects what its required toolchain is missing or too old (tmux, node, gh, jq, treehouse with durable lease support, no-mistakes v1.31.2 or newer, gh-axi, chrome-devtools-axi, lavish-axi, tasks-axi v0.1.1 or newer, codebase-memory-mcp pinned to its one validated version, and a bash 4+ on `PATH` for the test suite), lists it with the exact install commands, and installs only after you say go.
 When X mode is opted in, bootstrap also requires `curl` before arming the relay poll shim (`jq` is already part of the default suite).
 If compatible `tasks-axi` is on `PATH`, bootstrap records it as a capability fact and firstmate uses its verbs for routine backlog mutations; when it is absent or incompatible, bootstrap reports it as missing but firstmate keeps hand-editing `data/backlog.md` exactly as before - the install is recommended, never blocking.
 Bootstrap also reports a `TANGLE:` line when `FM_ROOT` is on a named non-default branch; follow the printed checkout remediation rather than treating it as an installable tool problem.

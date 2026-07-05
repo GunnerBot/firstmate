@@ -62,6 +62,17 @@ fi
 exit 0
 SH
   chmod +x "$fakebin/no-mistakes"
+  # cmm prints level=info noise to stderr before answering, like the real binary.
+  cat > "$fakebin/codebase-memory-mcp" <<'SH'
+#!/usr/bin/env bash
+echo 'level=info msg="fake cmm"' >&2
+if [ "${1:-}" = --version ]; then
+  printf 'codebase-memory-mcp %s\n' "${FM_FAKE_CMM_VERSION:-0.8.1}"
+  exit 0
+fi
+exit 0
+SH
+  chmod +x "$fakebin/codebase-memory-mcp"
   printf '%s\n' "$fakebin"
 }
 
@@ -116,6 +127,28 @@ missing tasks-axi reports an install^1^-^exact^MISSING: tasks-axi (install: npm 
 incompatible tasks-axi reports an upgrade^1^0.1.0^grep^MISSING: tasks-axi (install: npm install -g tasks-axi)^TASKS_AXI: available
 ROWS
   pass "bootstrap reports treehouse lease + tasks-axi compatibility contracts"
+}
+
+# cmm (codebase-memory-mcp) is pinned to one validated version, not a floor:
+# absent or any other version reports the same MISSING install line.
+test_cmm_exact_pin() {
+  local case_dir fakebin out missing
+  missing='MISSING: codebase-memory-mcp (install: mkdir -p "$HOME/.local/bin" && gh release download v0.8.1 -R DeusData/codebase-memory-mcp -p "codebase-memory-mcp-$(uname -s | tr A-Z a-z)-$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/).tar.gz" -O - | tar -xz -C "$HOME/.local/bin" codebase-memory-mcp)'
+  case_dir="$TMP_ROOT/cmm-pin"
+  mkdir -p "$case_dir/home"
+  fakebin=$(make_fake_toolchain "$case_dir")
+  add_tasks_axi "$fakebin" 0.1.1
+
+  out=$(PATH="$fakebin:$BASE_PATH" FM_HOME="$case_dir/home" FM_ROOT_OVERRIDE="$case_dir/home" \
+    FM_FAKE_TREEHOUSE_LEASE_HELP=1 FM_FAKE_CMM_VERSION=0.9.0 "$ROOT/bin/fm-bootstrap.sh")
+  printf '%s\n' "$out" | grep -Fx "$missing" >/dev/null || fail "wrong cmm version should report the pin (got: $out)"
+
+  rm -f "$fakebin/codebase-memory-mcp"
+  out=$(PATH="$fakebin:$BASE_PATH" FM_HOME="$case_dir/home" FM_ROOT_OVERRIDE="$case_dir/home" \
+    FM_FAKE_TREEHOUSE_LEASE_HELP=1 "$ROOT/bin/fm-bootstrap.sh")
+  printf '%s\n' "$out" | grep -Fx "$missing" >/dev/null || fail "absent cmm should report the install (got: $out)"
+
+  pass "bootstrap pins codebase-memory-mcp to the validated version"
 }
 
 # bash and jq are part of the enforced suite: an old PATH bash (< 4) and a
@@ -188,4 +221,5 @@ ROWS
 
 test_bootstrap_reporting
 test_no_mistakes_min_version
+test_cmm_exact_pin
 test_bash_and_jq_enforcement

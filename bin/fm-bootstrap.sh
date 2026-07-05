@@ -9,6 +9,8 @@
 #                 "TASKS_AXI: available", "TANGLE: <remediation>",
 #                 "SECONDMATE_SYNC: secondmate <id>: skipped: <reason>",
 #                 "NUDGE_SECONDMATES: <window-targets...>",
+#                 "NM_INIT: firstmate gate initialized" or
+#                 "NM_INIT: firstmate gate init failed - run: no-mistakes init",
 #                 "FMX: X mode on ..." or "FMX: X mode off ...".
 #          A NUDGE_SECONDMATES line lists the RUNNING secondmate windows whose
 #          worktree was fast-forwarded to firstmate's own current default-branch
@@ -40,6 +42,14 @@
 #          X mode is OPTIONAL and inert unless FM_HOME/.env has a non-empty
 #          FMX_PAIRING_TOKEN. When opted in, bootstrap requires curl+jq, writes
 #          the relay poll shim and 30s cadence config, and prints an FMX line.
+#          NM_INIT self-initializes the firstmate repo's OWN no-mistakes gate on a
+#          fresh clone: a clone never has "no-mistakes init" run for FM_ROOT, so
+#          "git push no-mistakes" has no remote and PRs silently bypass the gate.
+#          Bootstrap detects the missing "no-mistakes" remote and runs init
+#          best-effort and non-fatal (like fleet sync), but only when the
+#          no-mistakes binary is present, FM_ROOT is a git repo with an origin
+#          remote, and gh auth is good; init is local-only and idempotent, so it
+#          stays silent once the gate exists and inert when the prereqs are unmet.
 #          Fleet sync fetches, fast-forwards safe default-branch states, reports
 #          recovered and STUCK clone drift, and prunes gone local branches; it is
 #          bounded by FM_FLEET_SYNC_BOOTSTRAP_TIMEOUT, default 20s.
@@ -139,6 +149,55 @@ secondmate_sync() {
   rm -f "$tmp"
   [ -n "$FF_NUDGE_WINDOWS" ] && echo "NUDGE_SECONDMATES:$FF_NUDGE_WINDOWS"
   return 0
+}
+
+# Self-initialize the firstmate repo's OWN no-mistakes gate on a fresh clone.
+# `no-mistakes init` creates only LOCAL state (a bare gate repo, its post-receive
+# hook, the `no-mistakes` git remote in .git/config, and a DB record under
+# ~/.no-mistakes); it touches no tracked files, pushes nothing, and is idempotent.
+# A fresh clone never has it run, so `git push no-mistakes` has no remote and PRs
+# silently bypass the gate. "Not initialized" is the absence of the `no-mistakes`
+# remote. Act only when the tool is present, FM_ROOT is a git repo with an origin
+# remote, and gh auth is good (all separately reported conditions); otherwise stay
+# silent. Best-effort and non-fatal like fleet sync: never break bootstrap, never
+# exit non-zero, and no network beyond what `no-mistakes init` itself does. Prints
+# exactly one line on action; silent when already initialized or prereqs unmet.
+# The init runs under the same bounded kill-loop as fleet_sync (FM_NM_INIT_TIMEOUT,
+# default 20s): `no-mistakes init` touches the daemon/DB, so a down daemon or locked
+# DB would otherwise hang every session start, breaking the never-block contract.
+nm_init_gate() {
+  local gh_ok=$1 timeout start pid rc monitor_was_on
+  command -v no-mistakes >/dev/null 2>&1 || return 0
+  [ "$gh_ok" -eq 1 ] || return 0
+  git -C "$FM_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
+  git -C "$FM_ROOT" remote get-url origin >/dev/null 2>&1 || return 0
+  git -C "$FM_ROOT" remote get-url no-mistakes >/dev/null 2>&1 && return 0
+
+  timeout=${FM_NM_INIT_TIMEOUT:-20}
+  case "$timeout" in ''|*[!0-9]*) timeout=20 ;; esac
+  monitor_was_on=0
+  case $- in *m*) monitor_was_on=1 ;; esac
+  set -m 2>/dev/null || true
+  ( cd "$FM_ROOT" && no-mistakes init >/dev/null 2>&1 ) &
+  pid=$!
+  start=$SECONDS
+  while jobs -r -p | grep -qx "$pid"; do
+    if [ $((SECONDS - start)) -ge "$timeout" ]; then
+      kill -TERM "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+      [ "$monitor_was_on" -eq 1 ] || set +m 2>/dev/null || true
+      echo "NM_INIT: firstmate gate init timed out - run: no-mistakes init"
+      return 0
+    fi
+    sleep 1
+  done
+  wait "$pid" 2>/dev/null; rc=$?
+  [ "$monitor_was_on" -eq 1 ] || set +m 2>/dev/null || true
+  if [ "$rc" -eq 0 ]; then
+    echo "NM_INIT: firstmate gate initialized"
+  else
+    echo "NM_INIT: firstmate gate init failed - run: no-mistakes init"
+  fi
 }
 
 # shellcheck disable=SC2016  # cmm's install line keeps $HOME/$(uname ...) literal until install-time eval
@@ -317,7 +376,9 @@ fi
 bash4_available || echo "MISSING: bash (install: $(install_cmd bash))"
 fm_tasks_axi_compatible || echo "MISSING: tasks-axi (install: $(install_cmd tasks-axi))"
 fm_cmm_compatible || echo "MISSING: codebase-memory-mcp (install: $(install_cmd codebase-memory-mcp))"
-gh auth status >/dev/null 2>&1 || echo "NEEDS_GH_AUTH"
+gh_auth_ok=0
+gh auth status >/dev/null 2>&1 && gh_auth_ok=1
+[ "$gh_auth_ok" -eq 1 ] || echo "NEEDS_GH_AUTH"
 # Worktree-tangle check: the firstmate primary checkout (FM_ROOT) must sit on its
 # default branch, not a feature branch (see fm-tangle-lib.sh). Scoped to the
 # primary only; detached-HEAD worktrees and secondmate homes never trip it.
@@ -330,6 +391,7 @@ crew=
 [ -f "$CONFIG/crew-harness" ] && crew=$(tr -d '[:space:]' < "$CONFIG/crew-harness" || true)
 [ -n "$crew" ] && [ "$crew" != "default" ] && echo "CREW_HARNESS_OVERRIDE: $crew"
 fm_tasks_axi_compatible && echo "TASKS_AXI: available"
+nm_init_gate "$gh_auth_ok"
 secondmate_sync
 x_mode_setup
 fleet_sync

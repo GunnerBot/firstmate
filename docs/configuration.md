@@ -57,6 +57,8 @@ When X mode is opted in, bootstrap also requires `curl` before arming the relay 
 If compatible `tasks-axi` is on `PATH`, bootstrap records it as a capability fact and firstmate uses its verbs for routine backlog mutations; when it is absent or incompatible, bootstrap reports it as missing but firstmate keeps hand-editing `data/backlog.md` exactly as before - the install is recommended, never blocking.
 codebase-memory-mcp (cmm) powers blast-radius impact analysis: `fm-graph-health.sh` gates every graph query on the exact validated version, an index matched by `root_path`, and freshness against the last commit and newest modified `*.java`, with `--index` auto-healing the index; non-Java projects report `N/A` and impact analysis runs grep-only there by design.
 Bootstrap also reports a `TANGLE:` line when `FM_ROOT` is on a named non-default branch; follow the printed checkout remediation rather than treating it as an installable tool problem.
+Bootstrap also self-initializes the firstmate repo's own no-mistakes gate on first launch, so a fresh clone can ship firstmate-repo changes through the gate without a manual `no-mistakes init` step.
+It runs the local, idempotent init only when the `no-mistakes` binary is present, `FM_ROOT` is a git repo with an `origin` remote, and gh auth is good, and reports it with an `NM_INIT:` line; it stays silent once the gate exists and is best-effort and non-fatal like the fleet refresh.
 Bootstrap also runs a best-effort project clone refresh through `fm-fleet-sync.sh`.
 It emits `FLEET_SYNC:` for skipped refreshes that may matter, recovered self-heals, and `STUCK:` alarms; local-only and no-origin skips stay silent.
 Bootstrap also runs the guarded local secondmate sync for recorded live secondmate homes.
@@ -137,6 +139,7 @@ FM_CAPTAIN_RE='done:|needs-decision:|blocked:|failed:|PR ready|checks green|read
 FM_STALE_ESCALATE_SECS=240         # idle seconds before a provably-working non-terminal stale pane escalates; not-provably-working stale wakes surface immediately
 FM_WATCH_TRIAGE_LOG_MAX_BYTES=262144   # size cap for the watcher's absorbed-wake debug log
 FM_FLEET_SYNC_BOOTSTRAP_TIMEOUT=20   # seconds allowed for bootstrap's best-effort clone refresh
+FM_NM_INIT_TIMEOUT=20   # seconds allowed for bootstrap's best-effort firstmate no-mistakes gate self-init
 FM_FLEET_PRUNE=1        # set to 0 to skip pruning local branches whose upstream is gone
 FM_BUSY_REGEX='esc (to )?interrupt|Working\.\.\.'   # busy-pane signatures, shared by watcher and tmux helper
 FM_COMPOSER_IDLE_RE=    # optional empty-composer regex, applied after dim-ghost and border stripping

@@ -123,6 +123,7 @@ Otherwise it prints one line per problem or capability fact; handle each:
   For `no-mistakes`, this also covers an installed version older than 1.31.2, because crewmate validation briefs delegate gate mechanics to no-mistakes' version-matched guidance.
   For `tasks-axi`, this also covers an installed version older than 0.1.1; its absence stays non-blocking (the backlog falls back to hand-editing, section 10), so treat the install as recommended rather than a work stopper.
   For `bash`, this means no `bash` on `PATH` reports version 4 or newer; the test suite needs bash 4+ (macOS ships 3.2), and runtime scripts are unaffected.
+  For `codebase-memory-mcp` (cmm, the blast-radius graph engine), the pin is exact: absent or any version other than the validated one reports the same install line; it never blocks work because impact analysis falls back to grep-only (section 7 blast radius).
 - `NEEDS_GH_AUTH` - ask the captain to run `! gh auth login` (interactive; you cannot run it for them).
 - `TANGLE: <remediation>` - the firstmate primary checkout (the repo root, `FM_ROOT`) is stranded on a feature branch instead of its default branch: a crewmate working firstmate-on-itself branched/committed in the primary instead of its own isolated worktree (section 8). The work is safe on that branch ref; restore the primary to its default branch with the printed `git -C <root> checkout <default>`, then re-validate that branch in a proper worktree. This is the only sanctioned firstmate-initiated git write to the primary, and it is a non-destructive branch switch that strands nothing.
 - `CREW_HARNESS_OVERRIDE: <name>` - record and use the override silently; surface a harness fact only if it actually blocks work or the captain asks.
@@ -264,6 +265,7 @@ Do not eagerly backfill every project.
 Orthogonal to mode is an optional `+yolo` flag (`[direct-PR +yolo]`), default off and **not recommended**: with `yolo` on, firstmate makes the approval decisions itself instead of asking the captain (section 7). When the captain adds a project without saying, default to `no-mistakes` with yolo off; only set a faster mode or `+yolo` on the captain's explicit say-so.
 
 **Clone existing:** `git clone <url> projects/<name>`, add its registry line with the chosen mode, then initialize only if the mode is `no-mistakes`.
+After any clone, run `bin/fm-graph-health.sh projects/<name> --index` best-effort: Java projects get their blast-radius graph indexed up front, everything else reports `N/A` and impact analysis is grep-only there.
 
 **Create new:** for `no-mistakes` and `direct-PR` modes a new project needs a GitHub repo first (they push to an `origin` remote); a `local-only` project needs no remote at all - a purely local git repo is fine.
 Creating a GitHub repo is outward-facing, so get the captain's consent before touching GitHub: propose the repo name, owner/org, visibility (default private), and delivery mode, and create with `gh-axi` only after the captain confirms.
@@ -357,6 +359,7 @@ The script resolves the harness (`fm-harness.sh crew`), owns the verified launch
 For `kind=secondmate`, the same script launches in the registered or explicit firstmate home instead of running `treehouse get` for a project, records `home=` and `projects=`, and uses the charter brief as the launch prompt.
 
 For ship and scout tasks, the script creates the window (in your current tmux session, or a dedicated `firstmate` session when you are outside tmux), runs `treehouse get`, waits for the worktree subshell, asserts the resolved worktree is a genuine isolated worktree distinct from the primary checkout (aborting the spawn otherwise, to prevent the worktree tangle of section 8), installs the turn-end hook, records `state/<id>.meta`, and launches the agent with the brief.
+Before creating the window, it also refreshes the project's blast-radius graph best-effort via `bin/fm-graph-health.sh <project> --index`, so the crewmate's impact scan queries a current index; a warning (missing tool, unhealed index, non-Java repo) never blocks the spawn and only degrades the crewmate to grep-only impact analysis.
 For `kind=secondmate`, the script creates the same kind of window but starts directly in the persistent home.
 Before launching a secondmate, the script fast-forwards its home worktree to firstmate's own current default-branch commit, so a freshly spawned or recovery-respawned secondmate always starts on firstmate's current version.
 This is a purely local fast-forward of tracked files - never a fetch from origin, and never touching the gitignored operational dirs - so the secondmate's backlog, projects, and any prior in-flight work are untouched; a dirty, diverged, or in-flight home is left as-is and launches unchanged.
@@ -654,6 +657,7 @@ The no-mistakes brief points to no-mistakes' version-matched guidance and keeps 
 The scaffold reads the mode via `fm-project-mode.sh`, so you do not pass it.
 Ship briefs also carry a best-effort `# Repo toolchain` section from `bin/fm-framework-detect.sh` (build/test/run commands and source root, detected by pure file inspection of the project clone, or a project-committed `framework.md` verbatim when present). This is enrichment, never a gate: an unknown stack or a missing clone yields a "not auto-detected" block and the crewmate proceeds on its native flow, inferring commands from the project's own `AGENTS.md`/`README` or escalating `needs-decision` if they stay unclear.
 Ship briefs also include the project-memory contract: run `bin/fm-ensure-agents-md.sh` when the project already has agent-memory files or when the task produced durable project-intrinsic knowledge, then record proportionate learnings in `AGENTS.md`.
+Ship briefs also carry the blast-radius contract: the crewmate loads the `blast-radius` playbook (by absolute path, since project worktrees do not see firstmate's skills), runs its SCOPE steps before implementing and its VERIFY steps before `done`, and names the mode it ran in (graph+grep for healthy Java graphs, grep-only otherwise).
 For scout tasks add `--scout`: the scaffold swaps the definition of done for the report contract (findings to `data/<id>/report.md`, no branch, no push, no PR) and declares the worktree scratch; scout is mode-agnostic.
 Scout briefs do not include the project-memory step, because their deliverable is a report rather than a committed project change.
 For secondmates use `bin/fm-brief.sh <id> --secondmate <project>...`.
@@ -680,6 +684,7 @@ These skills are not captain-invocable; they are conditional operating reference
 - `harness-adapters` - load before spawning or recovering a crewmate or secondmate, handling a trust dialog, sending a harness-specific skill invocation, interrupting or exiting an agent, resuming an exited agent, or verifying a new harness adapter.
 - `stuck-crewmate-recovery` - load after a stale wake, looping pane, repeated confusion, an answered-by-brief question, an unresponsive crewmate, or a failed steer.
 - `secondmate-provisioning` - load before creating, seeding, validating, recovering, handing backlog to, or retiring a secondmate home, and before editing `data/secondmates.md`.
+- `blast-radius` - the impact-analysis playbook (SCOPE before implementing, VERIFY before done; cmm graph union grep on Java, grep-only elsewhere). Crewmates load it from the absolute path in their ship brief; load it yourself before non-trivial direct edits to shared, tracked material in this repo.
 - `fmx-respond` - load on an `x-mention <request_id>` `check:` wake to classify the mention, act on actionable requests through the normal lifecycle, post or preview a public-safe outcome reply for work that completes immediately, dismiss pure acknowledgments at the relay without replying, or acknowledge and link spawned work so one completion follow-up posts later (section 14); relevant only when X mode is on.
 
 ## 14. X mode

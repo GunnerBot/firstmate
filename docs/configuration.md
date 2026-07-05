@@ -42,6 +42,7 @@ When it is unset, the repo root is the home; when it is set, scripts still run f
 `FM_ROOT_OVERRIDE` overrides the firstmate repo root used by scripts, including the primary checkout watched by the worktree-tangle guard.
 When `FM_HOME` is unset, it also behaves as the old whole-root override.
 `FM_STATE_OVERRIDE`, `FM_DATA_OVERRIDE`, `FM_PROJECTS_OVERRIDE`, and `FM_CONFIG_OVERRIDE` override individual operational directories for tests and specialized harness setup.
+`FM_CMM_CACHE_OVERRIDE` points `fm-graph-health.sh` at an alternate cmm index-DB cache dir (default `~/.cache/codebase-memory-mcp`), mainly for tests.
 
 ## Harness support
 
@@ -51,9 +52,10 @@ Launch mechanics, including the verified command templates, live in [`bin/fm-spa
 
 ## Toolchain
 
-On first launch the first mate detects what its required toolchain is missing or too old (tmux, node, gh, jq, treehouse with durable lease support, no-mistakes v1.31.2 or newer, gh-axi, chrome-devtools-axi, lavish-axi, tasks-axi v0.1.1 or newer, and a bash 4+ on `PATH` for the test suite), lists it with the exact install commands, and installs only after you say go.
+On first launch the first mate detects what its required toolchain is missing or too old (tmux, node, gh, jq, treehouse with durable lease support, no-mistakes v1.31.2 or newer, gh-axi, chrome-devtools-axi, lavish-axi, tasks-axi v0.1.1 or newer, codebase-memory-mcp pinned to its one validated version, and a bash 4+ on `PATH` for the test suite), lists it with the exact install commands, and installs only after you say go.
 When X mode is opted in, bootstrap also requires `curl` before arming the relay poll shim (`jq` is already part of the default suite).
 If compatible `tasks-axi` is on `PATH`, bootstrap records it as a capability fact and firstmate uses its verbs for routine backlog mutations; when it is absent or incompatible, bootstrap reports it as missing but firstmate keeps hand-editing `data/backlog.md` exactly as before - the install is recommended, never blocking.
+codebase-memory-mcp (cmm) powers blast-radius impact analysis: `fm-graph-health.sh` gates every graph query on the exact validated version, an index matched by `root_path`, and freshness against the last commit and newest modified `*.java`, with `--index` auto-healing the index; non-Java projects report `N/A` and impact analysis runs grep-only there by design.
 Bootstrap also reports a `TANGLE:` line when `FM_ROOT` is on a named non-default branch; follow the printed checkout remediation rather than treating it as an installable tool problem.
 Bootstrap also runs a best-effort project clone refresh through `fm-fleet-sync.sh`.
 It emits `FLEET_SYNC:` for skipped refreshes that may matter, recovered self-heals, and `STUCK:` alarms; local-only and no-origin skips stay silent.

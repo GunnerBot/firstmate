@@ -32,6 +32,11 @@
 #          test suite requires bash 4+; macOS ships 3.2).
 #          jq is always part of the enforced suite (it was previously checked
 #          only when X mode was opted in).
+#          codebase-memory-mcp (cmm) is pinned to one validated version (see
+#          fm-cmm-lib.sh): absent or any other version reports the same
+#          MISSING install line. It powers blast-radius impact analysis and
+#          never blocks work - repos without a graph fall back to grep-only
+#          impact scans.
 #          X mode is OPTIONAL and inert unless FM_HOME/.env has a non-empty
 #          FMX_PAIRING_TOKEN. When opted in, bootstrap requires curl+jq, writes
 #          the relay poll shim and 30s cadence config, and prints an FMX line.
@@ -51,6 +56,8 @@ CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 # shellcheck source=bin/fm-tasks-axi-lib.sh
 . "$SCRIPT_DIR/fm-tasks-axi-lib.sh"
+# shellcheck source=bin/fm-cmm-lib.sh
+. "$SCRIPT_DIR/fm-cmm-lib.sh"
 # shellcheck source=bin/fm-tangle-lib.sh
 . "$SCRIPT_DIR/fm-tangle-lib.sh"
 # shellcheck source=bin/fm-ff-lib.sh
@@ -134,6 +141,7 @@ secondmate_sync() {
   return 0
 }
 
+# shellcheck disable=SC2016  # cmm's install line keeps $HOME/$(uname ...) literal until install-time eval
 install_cmd() {
   case "$1" in
     tmux|node|gh|curl|jq|bash) echo "brew install $1  # or the platform's package manager" ;;
@@ -141,6 +149,7 @@ install_cmd() {
     no-mistakes) echo "curl -fsSL https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh | sh" ;;
     gh-axi|chrome-devtools-axi|lavish-axi) echo "npm install -g $1 && $1 setup hooks" ;;
     tasks-axi) echo "npm install -g tasks-axi" ;;
+    codebase-memory-mcp) echo 'mkdir -p "$HOME/.local/bin" && gh release download v'"$FM_CMM_PIN"' -R DeusData/codebase-memory-mcp -p "codebase-memory-mcp-$(uname -s | tr A-Z a-z)-$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/).tar.gz" -O - | tar -xz -C "$HOME/.local/bin" codebase-memory-mcp' ;;
     *) return 1 ;;
   esac
 }
@@ -307,6 +316,7 @@ if command -v no-mistakes >/dev/null 2>&1 && ! no_mistakes_compatible; then
 fi
 bash4_available || echo "MISSING: bash (install: $(install_cmd bash))"
 fm_tasks_axi_compatible || echo "MISSING: tasks-axi (install: $(install_cmd tasks-axi))"
+fm_cmm_compatible || echo "MISSING: codebase-memory-mcp (install: $(install_cmd codebase-memory-mcp))"
 gh auth status >/dev/null 2>&1 || echo "NEEDS_GH_AUTH"
 # Worktree-tangle check: the firstmate primary checkout (FM_ROOT) must sit on its
 # default branch, not a feature branch (see fm-tangle-lib.sh). Scoped to the

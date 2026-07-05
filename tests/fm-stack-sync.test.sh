@@ -11,7 +11,7 @@ set -u
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-fm_git_identity
+fm_git_identity fmtest fmtest@example.invalid
 SYNC="$ROOT/bin/fm-stack-sync.sh"
 TMP=$(fm_test_tmproot fm-stack-sync-tests)
 mkdir -p "$TMP/state"

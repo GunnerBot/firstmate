@@ -35,7 +35,7 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
-[ -n "$ID" ] && [ -n "$GATE" ] || usage
+if [ -z "$ID" ] || [ -z "$GATE" ]; then usage; fi
 case "$MAX" in *[!0-9]*|"") echo "error: --max must be a positive integer" >&2; exit 2 ;; esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -44,11 +44,17 @@ FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 RETRY="$STATE/$ID.retry"
 
-get_count() { [ -f "$RETRY" ] && grep "^$GATE=" "$RETRY" 2>/dev/null | tail -1 | cut -d= -f2- || true; }
+get_count() {
+  [ -f "$RETRY" ] || return 0
+  grep "^$GATE=" "$RETRY" 2>/dev/null | tail -1 | cut -d= -f2- || true
+}
 set_count() {
   local v=$1 tmp; mkdir -p "$STATE"; tmp=$(mktemp)
   if [ -f "$RETRY" ] && grep -q "^$GATE=" "$RETRY"; then sed "s#^$GATE=.*#$GATE=$v#" "$RETRY" > "$tmp"
-  else [ -f "$RETRY" ] && cp "$RETRY" "$tmp" || : > "$tmp"; printf '%s=%s\n' "$GATE" "$v" >> "$tmp"; fi
+  else
+    if [ -f "$RETRY" ]; then cp "$RETRY" "$tmp"; else : > "$tmp"; fi
+    printf '%s=%s\n' "$GATE" "$v" >> "$tmp"
+  fi
   mv "$tmp" "$RETRY"
 }
 

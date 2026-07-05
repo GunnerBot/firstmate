@@ -35,7 +35,13 @@ for a in "$@"; do
   case "$a" in
     --parent-merged) MERGED=1 ;;
     -*) echo "usage: fm-stack-sync.sh <child-id> [--parent-merged]" >&2; exit 2 ;;
-    *) [ -z "$ID" ] && ID=$a || { echo "usage: fm-stack-sync.sh <child-id> [--parent-merged]" >&2; exit 2; } ;;
+    *)
+      if [ -z "$ID" ]; then
+        ID=$a
+      else
+        echo "usage: fm-stack-sync.sh <child-id> [--parent-merged]" >&2; exit 2
+      fi
+      ;;
   esac
 done
 [ -n "$ID" ] || { echo "usage: fm-stack-sync.sh <child-id> [--parent-merged]" >&2; exit 2; }
@@ -65,7 +71,7 @@ CHILD_BRANCH="fm/$ID"
 [ -n "$PARENT_BRANCH" ] || PARENT_BRANCH="fm/$PARENT"
 
 if [ -z "$PARENT" ]; then echo "no parent recorded for $ID; nothing to sync"; exit 0; fi
-[ -n "$WT" ] && [ -d "$WT" ] || { echo "error: worktree for $ID missing ($WT)" >&2; exit 1; }
+if [ -z "$WT" ] || [ ! -d "$WT" ]; then echo "error: worktree for $ID missing ($WT)" >&2; exit 1; fi
 [ -n "$PARENT_TIP" ] || { echo "error: no parent_tip recorded for $ID" >&2; exit 1; }
 
 default_branch() {

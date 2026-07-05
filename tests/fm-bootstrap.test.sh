@@ -17,10 +17,21 @@ TMP_ROOT=$(fm_test_tmproot fm-bootstrap-tests)
 
 # A fake toolchain where every required tool is present and gh is authenticated.
 # treehouse's `get --help` advertises --lease only when FM_FAKE_TREEHOUSE_LEASE_HELP=1.
+# bash reports FM_FAKE_BASH_VERSION (default 5.2.0) to --version and otherwise
+# execs the real /bin/bash, so it is safe as a PATH-resolved interpreter.
 make_fake_toolchain() {
   local dir=$1 fakebin
   fakebin=$(fm_fakebin "$dir")
-  fm_fake_exit0 "$fakebin" tmux node gh-axi chrome-devtools-axi lavish-axi
+  fm_fake_exit0 "$fakebin" tmux node gh-axi chrome-devtools-axi lavish-axi jq
+  cat > "$fakebin/bash" <<'SH'
+#!/bin/sh
+if [ "${1:-}" = --version ]; then
+  printf 'GNU bash, version %s(1)-release (fake)\n' "${FM_FAKE_BASH_VERSION:-5.2.0}"
+  exit 0
+fi
+exec /bin/bash "$@"
+SH
+  chmod +x "$fakebin/bash"
   cat > "$fakebin/gh" <<'SH'
 #!/usr/bin/env bash
 if [ "${1:-}" = auth ] && [ "${2:-}" = status ]; then
@@ -99,12 +110,51 @@ test_bootstrap_reporting() {
         ;;
     esac
   done <<'ROWS'
-treehouse --lease support is accepted silently^1^-^empty^^
-treehouse without --lease reports an upgrade, gh auth is fine^0^-^grep^MISSING: treehouse (install: curl -fsSL https://kunchenguid.github.io/treehouse/install.sh | sh)^NEEDS_GH_AUTH
-compatible tasks-axi is reported available^1^0.1.1^exact^TASKS_AXI: available^
-incompatible tasks-axi is ignored^1^0.1.0^empty^^
+full suite present reports only tasks-axi availability^1^0.1.1^exact^TASKS_AXI: available^
+treehouse without --lease reports an upgrade, gh auth is fine^0^0.1.1^grep^MISSING: treehouse (install: curl -fsSL https://kunchenguid.github.io/treehouse/install.sh | sh)^NEEDS_GH_AUTH
+missing tasks-axi reports an install^1^-^exact^MISSING: tasks-axi (install: npm install -g tasks-axi)^
+incompatible tasks-axi reports an upgrade^1^0.1.0^grep^MISSING: tasks-axi (install: npm install -g tasks-axi)^TASKS_AXI: available
 ROWS
   pass "bootstrap reports treehouse lease + tasks-axi compatibility contracts"
+}
+
+# bash and jq are part of the enforced suite: an old PATH bash (< 4) and a
+# missing jq each report a MISSING line; bash 4.x is the accepted floor.
+test_bash_and_jq_enforcement() {
+  local case_dir fakebin out
+  case_dir="$TMP_ROOT/bash-jq"
+  mkdir -p "$case_dir/home"
+  fakebin=$(make_fake_toolchain "$case_dir")
+  add_tasks_axi "$fakebin" 0.1.1
+
+  out=$(PATH="$fakebin:$BASE_PATH" FM_HOME="$case_dir/home" FM_ROOT_OVERRIDE="$case_dir/home" \
+    FM_FAKE_TREEHOUSE_LEASE_HELP=1 FM_FAKE_BASH_VERSION=3.2.57 "$ROOT/bin/fm-bootstrap.sh")
+  assert_contains "$out" "MISSING: bash (install: brew install bash  # or the platform's package manager)" \
+    "old bash reports an upgrade"
+
+  out=$(PATH="$fakebin:$BASE_PATH" FM_HOME="$case_dir/home" FM_ROOT_OVERRIDE="$case_dir/home" \
+    FM_FAKE_TREEHOUSE_LEASE_HELP=1 FM_FAKE_BASH_VERSION=4.0.0 "$ROOT/bin/fm-bootstrap.sh")
+  assert_not_contains "$out" "MISSING: bash" "bash 4.0 is the accepted floor"
+
+  # The OS may ship its own jq (macOS Sequoia: /usr/bin/jq), so removing the
+  # fake is not enough - the case needs system dirs with jq filtered out.
+  local sysbin d f b
+  sysbin="$case_dir/sysbin"
+  mkdir -p "$sysbin"
+  for d in /usr/bin /bin; do
+    for f in "$d"/*; do
+      b=$(basename "$f")
+      [ "$b" = jq ] && continue
+      [ -e "$sysbin/$b" ] || ln -s "$f" "$sysbin/$b"
+    done
+  done
+  rm -f "$fakebin/jq"
+  out=$(PATH="$fakebin:$sysbin:/usr/sbin:/sbin" FM_HOME="$case_dir/home" FM_ROOT_OVERRIDE="$case_dir/home" \
+    FM_FAKE_TREEHOUSE_LEASE_HELP=1 "$ROOT/bin/fm-bootstrap.sh")
+  assert_contains "$out" "MISSING: jq (install: brew install jq  # or the platform's package manager)" \
+    "missing jq reports an install"
+
+  pass "bootstrap enforces bash 4+ and jq in the default suite"
 }
 
 test_no_mistakes_min_version() {
@@ -117,13 +167,14 @@ test_no_mistakes_min_version() {
     case_dir="$TMP_ROOT/no-mistakes-$n"
     mkdir -p "$case_dir/home"
     fakebin=$(make_fake_toolchain "$case_dir")
+    add_tasks_axi "$fakebin" 0.1.1
     out=$(PATH="$fakebin:$BASE_PATH" FM_HOME="$case_dir/home" FM_ROOT_OVERRIDE="$case_dir/home" \
       FM_FAKE_TREEHOUSE_LEASE_HELP=1 FM_FAKE_NO_MISTAKES_VERSION="$version" "$ROOT/bin/fm-bootstrap.sh")
     case "$mode" in
       empty)
-        [ -z "$out" ] || fail "$label: expected silence, got: $out" ;;
+        [ "$out" = "TASKS_AXI: available" ] || fail "$label: expected only availability, got: $out" ;;
       missing)
-        [ "$out" = "$missing" ] || fail "$label: expected '$missing', got: $out" ;;
+        [ "$out" = "$missing"$'\n'"TASKS_AXI: available" ] || fail "$label: expected '$missing', got: $out" ;;
     esac
   done <<'ROWS'
 minimum no-mistakes version is accepted^no-mistakes version v1.31.2 (fake)^empty
@@ -137,3 +188,4 @@ ROWS
 
 test_bootstrap_reporting
 test_no_mistakes_min_version
+test_bash_and_jq_enforcement

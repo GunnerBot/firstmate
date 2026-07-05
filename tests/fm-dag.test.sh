@@ -97,7 +97,7 @@ ready=$("$DAG" ready "$bl")
 assert_contains "$ready" "x" "pruned/unknown blocker treated as satisfied"
 
 # --- missing backlog: graceful exit 0 ---
-out=$("$DAG" plan "$TMP/nope.md" 2>/dev/null); rc=$?
+"$DAG" plan "$TMP/nope.md" >/dev/null 2>&1; rc=$?
 expect_code 0 "$rc" "missing backlog exits 0"
 
 pass "fm-dag: frontier, wave width/depth, scope overlap, in-flight, pruned blocker, graceful"

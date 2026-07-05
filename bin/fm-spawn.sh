@@ -338,6 +338,16 @@ else
 fi
 [ -f "$BRIEF" ] || { echo "error: no brief at $BRIEF" >&2; exit 1; }
 
+# Best-effort blast-radius graph freshness: (re)index the project's cmm graph
+# so the crewmate's impact scan queries a current index. Never gates a spawn -
+# a missing tool, unindexed repo, or non-Java project degrades the crewmate's
+# impact analysis to grep-only (see the blast-radius skill).
+if [ "$KIND" != secondmate ]; then
+  if ! "$SCRIPT_DIR/fm-graph-health.sh" "$PROJ_ABS" --index >/dev/null 2>&1; then
+    echo "warn: blast-radius graph not healthy for $PROJ_ABS; impact scans degrade to grep-only" >&2
+  fi
+fi
+
 # Same session when firstmate already runs inside tmux; dedicated session otherwise.
 if [ -n "${TMUX:-}" ]; then
   SES=$(tmux display-message -p '#S')

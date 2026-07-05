@@ -50,7 +50,15 @@ ROOT=$(cd "$REPO" && git rev-parse --show-toplevel 2>/dev/null) || {
   echo "error: not a git repository: $REPO" >&2; exit 2
 }
 
-mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null; }
+# GNU stat first: on GNU, BSD-style `stat -f %m` does not fail - it prints the
+# filesystem MOUNT POINT (-f is filesystem mode there), which would silently
+# poison every freshness compare. The numeric guard rejects any such non-epoch.
+mtime() {
+  local m
+  m=$(stat -c %Y "$1" 2>/dev/null) || m=$(stat -f %m "$1" 2>/dev/null) || return 1
+  case "$m" in '' | *[!0-9]*) return 1 ;; esac
+  printf '%s\n' "$m"
+}
 
 # Gate 0 - applicability: the graph engine indexes Java.
 if ! git -C "$ROOT" ls-files -- '*.java' | head -1 | grep -q .; then

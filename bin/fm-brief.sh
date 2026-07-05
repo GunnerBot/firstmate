@@ -247,6 +247,11 @@ If the top-level path is the primary checkout or not the worktree you were launc
 # Repo toolchain
 $TOOLCHAIN
 
+# Blast radius
+Before implementing, load the impact-analysis playbook at \`$FM_ROOT/.agents/skills/blast-radius/SKILL.md\` and run its SCOPE steps for the symbols you will touch, starting with \`$FM_ROOT/bin/fm-graph-health.sh . --index\`.
+After implementing, run its VERIFY steps and include the resulting "Impact" section in your PR body (or your done summary when the task has no PR).
+Grep-only mode (non-Java repo, or a graph that --index could not heal) is a valid mode, not a skip; always name the mode you ran in.
+
 # Rules
 $RULE1
 2. Stay inside this worktree; modify nothing outside it.

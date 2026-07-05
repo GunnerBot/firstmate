@@ -10,6 +10,11 @@ Each file also starts with a short header comment.
 | `fm-update.sh`           | Self-update the running firstmate repo and registered secondmate homes with fast-forward-only pulls from origin     |
 | `fm-backlog-handoff.sh`  | Move already-judged in-scope queued backlog items from the main home into a seeded secondmate home                 |
 | `fm-brief.sh`            | Scaffold a ship brief with a worktree-isolation assertion, a report-only scout brief with `--scout`, or a secondmate charter with `--secondmate` |
+| `fm-framework-detect.sh` | Best-effort repo-toolchain detection (build/test/run commands, source root) embedded in ship briefs; never gates    |
+| `fm-dag.sh`              | Width-optimized parallel wave planner over `data/backlog.md`; `ready` prints the dispatchable frontier              |
+| `fm-stack-sync.sh`       | Rebase a stacked child branch when its parent advances or merges (squash-safe, uses the recorded parent tip)        |
+| `fm-retry.sh`            | Bounded per-task, per-gate revise/re-steer counter; exits non-zero at the cap so loops escalate instead of spinning |
+| `fm-graph-health.sh`     | Blast-radius graph health for one repo: N/A without Java, exact cmm pin, indexed, fresh; `--index` auto-heals the index |
 | `fm-ensure-agents-md.sh` | Ensure project `AGENTS.md` is the real memory file and `CLAUDE.md` symlinks to it                                   |
 | `fm-guard.sh`            | Warn when the primary checkout is tangled, when queued wakes are pending, or when a stale or missing watcher needs a prominent banner |
 | `fm-home-seed.sh`        | Lease/provision a secondmate home transactionally, clone projects, initialize gates, and maintain `data/secondmates.md` |
@@ -25,6 +30,7 @@ Each file also starts with a short header comment.
 | `fm-tangle-lib.sh`       | Shared default-branch resolution and primary-checkout tangle classification sourced by bootstrap and guard         |
 | `fm-ff-lib.sh`           | Shared guarded fast-forward helper for `/updatefirstmate` origin pulls and no-fetch local secondmate syncs         |
 | `fm-tasks-axi-lib.sh`    | Shared `tasks-axi` compatibility probe sourced by bootstrap and teardown                                            |
+| `fm-cmm-lib.sh`          | Shared `codebase-memory-mcp` exact-pin probe sourced by bootstrap and graph health                                  |
 | `fm-wake-drain.sh`       | Atomically drain queued watcher wakes before handling supervision work, then run the watcher-liveness guard         |
 | `fm-wake-lib.sh`         | Shared durable wake queue and portable lock helpers sourced by the watcher, drain, arm, guard, and daemon          |
 | `fm-classify-lib.sh`     | Shared captain-relevant wake classifier sourced by the watcher and daemon, plus the watcher's provably-working predicate |

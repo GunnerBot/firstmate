@@ -136,6 +136,9 @@ Otherwise it prints one line per problem or capability fact; handle each:
 - `NUDGE_SECONDMATES: <window-targets...>` - the secondmate sweep fast-forwarded one or more *running* secondmate homes to firstmate's current version and their instructions actually changed; for each listed window, send a one-line re-read nudge with `bin/fm-send.sh <window-target> 'firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions.'` so that secondmate picks up its new instructions.
   This mirrors `/updatefirstmate`'s `nudge-secondmates:` report: it is a gentle steer, never an interruption, and the fast-forward already landed safely.
   A secondmate that was skipped, already current, or whose advance changed no instructions is not listed and must not be disturbed.
+- `NM_INIT: firstmate gate initialized` / `NM_INIT: firstmate gate init failed - run: no-mistakes init` - bootstrap self-initialized the firstmate repo's own no-mistakes gate because a fresh clone never has it run, so shipping firstmate-repo changes through the gate works without a manual step.
+  This is automatic and non-fatal: it runs only when the tool, an `origin` remote, and gh auth are all present, it stays silent once the gate exists, and a failure never blocks startup.
+  On the failure line, run `no-mistakes init` yourself in the repo root and re-check before shipping firstmate-repo work.
 - `FMX: X mode on ...` / `FMX: X mode off ...` - bootstrap confirmed or removed the local X-mode poll artifacts; follow section 14 for watcher cadence restart only when a running watcher needs the transition applied immediately.
 
 Bootstrap's fleet refresh is bounded by `FM_FLEET_SYNC_BOOTSTRAP_TIMEOUT` seconds, default 20; a timeout is reported as a `FLEET_SYNC` skip and does not block startup.

@@ -53,10 +53,21 @@ fi
 exit 0
 SH
   chmod +x "$fakebin/treehouse"
+  # `--version` reports the (fake) version; `init` self-initializes the local gate
+  # in the current repo. init records a marker and adds the `no-mistakes` remote so
+  # a test can assert it ran, mirroring the real init's local-only, idempotent shape
+  # (it touches no tracked files and pushes nothing).
   cat > "$fakebin/no-mistakes" <<'SH'
 #!/usr/bin/env bash
 if [ "${1:-}" = --version ]; then
   printf '%s\n' "${FM_FAKE_NO_MISTAKES_VERSION:-no-mistakes version v1.31.2 (fake) 2026-06-27T00:02:18Z}"
+  exit 0
+fi
+if [ "${1:-}" = init ]; then
+  : > "$PWD/.nm-init-called"
+  # Simulate a hung daemon/locked DB so the bootstrap timeout guard is testable.
+  [ "${FM_FAKE_NM_INIT_HANG:-}" = 1 ] && sleep 30
+  git remote add no-mistakes "$PWD/.nm-gate.git" 2>/dev/null || true
   exit 0
 fi
 exit 0
@@ -220,7 +231,97 @@ ROWS
   pass "bootstrap enforces no-mistakes minimum version"
 }
 
+# Bootstrap self-initializes the firstmate repo's OWN no-mistakes gate on a fresh
+# clone: a clone never has `no-mistakes init` run for FM_ROOT, so `git push
+# no-mistakes` has no remote and PRs silently bypass the gate. Bootstrap detects
+# the missing `no-mistakes` remote and runs init best-effort, but only when the
+# tool is present, FM_ROOT is a git repo with an origin remote, and gh auth is
+# good. It is silent when already initialized or the prereqs are unmet, and stays
+# inert (the current test default) when FM_ROOT is not a git repo or has no origin.
+test_nm_gate_autoinit() {
+  local case_dir repo fakebin out
+
+  # 1) origin present, no `no-mistakes` remote, tool + auth present: init runs and
+  #    exactly one NM_INIT success line is emitted.
+  case_dir="$TMP_ROOT/nm-autoinit-run"
+  mkdir -p "$case_dir"
+  repo="$case_dir/repo"
+  fm_git_init_commit "$repo"
+  fm_git_add_origin "$repo" "$case_dir/remote.git"
+  fakebin=$(make_fake_toolchain "$case_dir")
+  add_tasks_axi "$fakebin" 0.1.1
+  out=$(PATH="$fakebin:$BASE_PATH" FM_HOME="$repo" FM_ROOT_OVERRIDE="$repo" \
+    FM_FAKE_TREEHOUSE_LEASE_HELP=1 "$ROOT/bin/fm-bootstrap.sh")
+  assert_contains "$out" "NM_INIT: firstmate gate initialized" \
+    "fresh gate reports init"
+  assert_present "$repo/.nm-init-called" "init was actually invoked"
+
+  # 2) `no-mistakes` remote already present: silent, and init is NOT invoked.
+  case_dir="$TMP_ROOT/nm-autoinit-done"
+  mkdir -p "$case_dir"
+  repo="$case_dir/repo"
+  fm_git_init_commit "$repo"
+  fm_git_add_origin "$repo" "$case_dir/remote.git"
+  git -C "$repo" remote add no-mistakes "$case_dir/gate.git"
+  fakebin=$(make_fake_toolchain "$case_dir")
+  add_tasks_axi "$fakebin" 0.1.1
+  out=$(PATH="$fakebin:$BASE_PATH" FM_HOME="$repo" FM_ROOT_OVERRIDE="$repo" \
+    FM_FAKE_TREEHOUSE_LEASE_HELP=1 "$ROOT/bin/fm-bootstrap.sh")
+  assert_not_contains "$out" "NM_INIT:" "already-initialized gate is silent"
+  assert_absent "$repo/.nm-init-called" "already-initialized gate does not re-run init"
+
+  # 3a) FM_ROOT is a git repo but has NO origin: stay inert, no NM_INIT line.
+  case_dir="$TMP_ROOT/nm-autoinit-no-origin"
+  mkdir -p "$case_dir"
+  repo="$case_dir/repo"
+  fm_git_init_commit "$repo"
+  fakebin=$(make_fake_toolchain "$case_dir")
+  add_tasks_axi "$fakebin" 0.1.1
+  out=$(PATH="$fakebin:$BASE_PATH" FM_HOME="$repo" FM_ROOT_OVERRIDE="$repo" \
+    FM_FAKE_TREEHOUSE_LEASE_HELP=1 "$ROOT/bin/fm-bootstrap.sh")
+  assert_not_contains "$out" "NM_INIT:" "git repo without origin stays inert"
+  assert_absent "$repo/.nm-init-called" "no-origin repo does not run init"
+
+  # 3b) FM_ROOT is NOT a git repo (the current suite default): silent.
+  case_dir="$TMP_ROOT/nm-autoinit-non-git"
+  mkdir -p "$case_dir/home"
+  fakebin=$(make_fake_toolchain "$case_dir")
+  add_tasks_axi "$fakebin" 0.1.1
+  out=$(PATH="$fakebin:$BASE_PATH" FM_HOME="$case_dir/home" FM_ROOT_OVERRIDE="$case_dir/home" \
+    FM_FAKE_TREEHOUSE_LEASE_HELP=1 "$ROOT/bin/fm-bootstrap.sh")
+  assert_not_contains "$out" "NM_INIT:" "non-git FM_ROOT stays inert"
+
+  pass "bootstrap self-initializes the firstmate repo's no-mistakes gate"
+}
+
+# A hung `no-mistakes init` (down daemon, locked DB) must not block startup:
+# nm_init_gate bounds it with the same kill-loop fleet_sync uses. With a fake init
+# that sleeps 30s and a 1s timeout, bootstrap must return promptly and emit the
+# timeout line rather than hanging.
+test_nm_gate_init_timeout() {
+  local case_dir repo fakebin out start elapsed
+  case_dir="$TMP_ROOT/nm-autoinit-timeout"
+  mkdir -p "$case_dir"
+  repo="$case_dir/repo"
+  fm_git_init_commit "$repo"
+  fm_git_add_origin "$repo" "$case_dir/remote.git"
+  fakebin=$(make_fake_toolchain "$case_dir")
+  add_tasks_axi "$fakebin" 0.1.1
+
+  start=$SECONDS
+  out=$(PATH="$fakebin:$BASE_PATH" FM_HOME="$repo" FM_ROOT_OVERRIDE="$repo" \
+    FM_FAKE_TREEHOUSE_LEASE_HELP=1 FM_FAKE_NM_INIT_HANG=1 FM_NM_INIT_TIMEOUT=1 \
+    "$ROOT/bin/fm-bootstrap.sh")
+  elapsed=$((SECONDS - start))
+  assert_contains "$out" "NM_INIT: firstmate gate init timed out" "hung init reports a timeout"
+  [ "$elapsed" -lt 20 ] || fail "hung init blocked startup for ${elapsed}s (timeout guard failed)"
+
+  pass "bootstrap bounds a hung no-mistakes init instead of blocking startup"
+}
+
 test_bootstrap_reporting
 test_no_mistakes_min_version
 test_cmm_exact_pin
 test_bash_and_jq_enforcement
+test_nm_gate_autoinit
+test_nm_gate_init_timeout

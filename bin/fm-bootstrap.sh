@@ -141,6 +141,7 @@ secondmate_sync() {
   return 0
 }
 
+# shellcheck disable=SC2016  # cmm's install line keeps $HOME/$(uname ...) literal until install-time eval
 install_cmd() {
   case "$1" in
     tmux|node|gh|curl|jq|bash) echo "brew install $1  # or the platform's package manager" ;;

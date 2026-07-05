@@ -133,6 +133,7 @@ ROWS
 # absent or any other version reports the same MISSING install line.
 test_cmm_exact_pin() {
   local case_dir fakebin out missing
+  # shellcheck disable=SC2016  # the expected MISSING line carries the literal install command
   missing='MISSING: codebase-memory-mcp (install: mkdir -p "$HOME/.local/bin" && gh release download v0.8.1 -R DeusData/codebase-memory-mcp -p "codebase-memory-mcp-$(uname -s | tr A-Z a-z)-$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/).tar.gz" -O - | tar -xz -C "$HOME/.local/bin" codebase-memory-mcp)'
   case_dir="$TMP_ROOT/cmm-pin"
   mkdir -p "$case_dir/home"

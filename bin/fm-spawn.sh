@@ -41,6 +41,8 @@ PROJECTS="${FM_PROJECTS_OVERRIDE:-$FM_HOME/projects}"
 SUB_HOME_MARKER=".fm-secondmate-home"
 # shellcheck source=bin/fm-ff-lib.sh
 . "$SCRIPT_DIR/fm-ff-lib.sh"
+# shellcheck source=bin/fm-tmux-lib.sh
+. "$SCRIPT_DIR/fm-tmux-lib.sh"
 # Skip the watcher guard when re-exec'd for one pair of a batch (FM_SPAWN_NO_GUARD is
 # set by the batch loop below), so the guard runs once for the batch, not once per pair.
 [ -n "${FM_SPAWN_NO_GUARD:-}" ] || "$FM_ROOT/bin/fm-guard.sh" || true
@@ -348,22 +350,30 @@ if [ "$KIND" != secondmate ]; then
   fi
 fi
 
-# Same session when firstmate already runs inside tmux; dedicated session otherwise.
-if [ -n "${TMUX:-}" ]; then
-  SES=$(tmux display-message -p '#S')
-else
-  tmux has-session -t firstmate 2>/dev/null || tmux new-session -d -s firstmate
-  SES=firstmate
-fi
+# Dedicated per-home tmux session so multiple firstmate homes sharing one tmux
+# server never share crewmate windows (the multi-firstmate clash). The name is
+# derived deterministically from this home, so every spawn from here lands in the
+# same session and no other home's spawn can collide with it. When firstmate is
+# itself running in a session of this name, the new window appears inline; when it
+# runs elsewhere (or outside tmux), the session is created detached and the captain
+# attaches to it. Recovery and every supervision script target windows by the
+# recorded window=session:window in meta, so they are unaffected by the name.
+# tmux target matching is prefix-based by default, so a bare -t "$SES" could
+# resolve to a different home's session whose name has $SES as a prefix (e.g.
+# fm-firstmate-42 matching fm-firstmate-4231). Prefix targets with '=' to force
+# exact match and keep per-home sessions isolated. new-session -s is a session
+# NAME, already exact, so it stays as-is.
+SES=$(fm_tmux_home_session "$FM_HOME")
+tmux has-session -t "=$SES" 2>/dev/null || tmux new-session -d -s "$SES"
 
 W="fm-$ID"
 T="$SES:$W"
-if tmux list-windows -t "$SES" -F '#{window_name}' | grep -qx "$W"; then
+if tmux list-windows -t "=$SES" -F '#{window_name}' | grep -qx "$W"; then
   echo "error: window $T already exists" >&2
   exit 1
 fi
 
-tmux new-window -d -t "$SES" -n "$W" -c "$PROJ_ABS"
+tmux new-window -d -t "=$SES" -n "$W" -c "$PROJ_ABS"
 if [ "$KIND" != secondmate ]; then
   tmux send-keys -t "$T" 'treehouse get' Enter
 

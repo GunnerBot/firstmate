@@ -38,6 +38,24 @@
 # interrupt"; opencode: "esc interrupt"; pi: "Working...".
 FM_TMUX_BUSY_REGEX_DEFAULT='esc (to )?interrupt|Working\.\.\.'
 
+# fm_tmux_home_session: deterministic tmux session name for a firstmate home.
+# Every crewmate window this home spawns lands in this one session, so multiple
+# firstmate homes sharing a tmux server never collide in the window namespace and
+# no home ever sees or manages another home's windows (the multi-firstmate clash).
+# Derivation is a sanitized basename plus a stable short hash of the absolute home
+# path, so two homes with the same basename still get distinct sessions and the
+# name is reproducible across restarts. tmux session names may not contain ':' or
+# '.', so every character outside [A-Za-z0-9_-] is folded to '-'. LC_ALL=C keeps
+# tr byte-oriented so a multibyte path can never desync the class. Pure function:
+# no tmux call, so it is trivially testable and safe under set -u/set -e.
+fm_tmux_home_session() {  # <home-abs-path> -> session name
+  local home=$1 base hash
+  base=$(basename "$home")
+  base=$(printf '%s' "$base" | LC_ALL=C tr -c 'A-Za-z0-9_-' '-')
+  hash=$(printf '%s' "$home" | cksum | cut -d' ' -f1)
+  printf 'fm-%s-%s' "$base" "$hash"
+}
+
 # fm_tmux_strip_ghost: remove dim/faint (ANSI SGR 2) styled runs from one captured
 # composer line, then drop any remaining escape sequences, leaving only the plain,
 # normal-intensity text, the text a human actually typed. Dim/faint runs are

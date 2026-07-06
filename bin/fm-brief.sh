@@ -247,6 +247,13 @@ If the top-level path is the primary checkout or not the worktree you were launc
 # Repo toolchain
 $TOOLCHAIN
 
+# Code style
+Write all code to the Google Style Guide for the language you are writing; the toolchain section above names the guide for the detected language.
+The guide is referenced by URL on purpose: fetch it and apply it rather than relying on memory, because it is the current source of truth.
+For any other language you touch (a shell script, C++, a config format), apply the matching Google guide from the index at https://google.github.io/styleguide/; where Google publishes no guide, follow the project's existing formatter and conventions.
+Google style is subordinate to the project's own committed conventions: its \`AGENTS.md\`, linter and formatter config (eslint, prettier, checkstyle, ruff, gofmt, .editorconfig), and any generated or framework-mandated layout win wherever they conflict, so never reformat against a project's established config just to match Google.
+Treat Google-style adherence as a review criterion, not only a writing one: before you report done, self-review your diff against the guide, and expect the validation review to flag unjustified deviations.
+
 # Blast radius
 Before implementing, load the impact-analysis playbook at \`$FM_ROOT/.agents/skills/blast-radius/SKILL.md\` and run its SCOPE steps for the symbols you will touch, starting with \`$FM_ROOT/bin/fm-graph-health.sh . --index\`.
 After implementing, run its VERIFY steps and include the resulting "Impact" section in your PR body (or your done summary when the task has no PR).

@@ -53,9 +53,24 @@ elif have Gemfile; then
   lang="Ruby"; build="bundle install"; test="bundle exec rake test"; run="bundle exec ruby <entrypoint>"
 fi
 
+# Google Style Guide for the detected language, emitted as a reference URL the
+# crewmate fetches and applies (the guide is the current source of truth, so it is
+# not vendored). Languages Google publishes no guide for fall back to the project's
+# own formatter/convention. The index at https://google.github.io/styleguide/
+# covers any other language the crewmate touches (shell, C++, config).
+style=""
+case "$lang" in
+  "TypeScript")            style="Google TypeScript Style Guide - https://google.github.io/styleguide/tsguide.html" ;;
+  "JavaScript/TypeScript") style="Google JS/TS Style Guides - https://google.github.io/styleguide/jsguide.html (JS), https://google.github.io/styleguide/tsguide.html (TS)" ;;
+  "Python")                style="Google Python Style Guide - https://google.github.io/styleguide/pyguide.html" ;;
+  "Go")                    style="Google Go Style Guide - https://google.github.io/styleguide/go/" ;;
+  Java*)                   style="Google Java Style Guide - https://google.github.io/styleguide/javaguide.html (Kotlin: no Google styleguide-repo guide; follow the project's ktlint/detekt config)" ;;
+esac
+
 if [ -z "$lang" ]; then
   emit "**Repo toolchain:** not auto-detected." \
-       "Use the project's \`AGENTS.md\`/\`README\` or infer the build/test/run commands from the repo itself. If they stay unclear, append \`needs-decision\` and ask - do not guess a build system."
+       "Use the project's \`AGENTS.md\`/\`README\` or infer the build/test/run commands from the repo itself. If they stay unclear, append \`needs-decision\` and ask - do not guess a build system." \
+       "**Code style:** match the Google Style Guide for whatever language you write; pick it from the index at https://google.github.io/styleguide/. Where Google publishes no guide, follow the project's formatter and conventions."
   exit 0
 fi
 
@@ -65,4 +80,9 @@ emit "**Repo toolchain** (best-effort auto-detection - verify against the repo b
      "- test: \`$test\`" \
      "- run: \`$run\`"
 if [ -n "$src" ]; then emit "- source root: \`$src\`"; fi
+if [ -n "$style" ]; then
+  emit "- style guide: $style (fetch and apply)"
+else
+  emit "- style guide: no dedicated Google guide for $lang; follow the project's formatter/convention (index: https://google.github.io/styleguide/)"
+fi
 exit 0

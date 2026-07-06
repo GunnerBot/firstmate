@@ -358,17 +358,22 @@ fi
 # runs elsewhere (or outside tmux), the session is created detached and the captain
 # attaches to it. Recovery and every supervision script target windows by the
 # recorded window=session:window in meta, so they are unaffected by the name.
+# tmux target matching is prefix-based by default, so a bare -t "$SES" could
+# resolve to a different home's session whose name has $SES as a prefix (e.g.
+# fm-firstmate-42 matching fm-firstmate-4231). Prefix targets with '=' to force
+# exact match and keep per-home sessions isolated. new-session -s is a session
+# NAME, already exact, so it stays as-is.
 SES=$(fm_tmux_home_session "$FM_HOME")
-tmux has-session -t "$SES" 2>/dev/null || tmux new-session -d -s "$SES"
+tmux has-session -t "=$SES" 2>/dev/null || tmux new-session -d -s "$SES"
 
 W="fm-$ID"
 T="$SES:$W"
-if tmux list-windows -t "$SES" -F '#{window_name}' | grep -qx "$W"; then
+if tmux list-windows -t "=$SES" -F '#{window_name}' | grep -qx "$W"; then
   echo "error: window $T already exists" >&2
   exit 1
 fi
 
-tmux new-window -d -t "$SES" -n "$W" -c "$PROJ_ABS"
+tmux new-window -d -t "=$SES" -n "$W" -c "$PROJ_ABS"
 if [ "$KIND" != secondmate ]; then
   tmux send-keys -t "$T" 'treehouse get' Enter
 

@@ -35,7 +35,7 @@ Each file also starts with a short header comment.
 | `fm-wake-lib.sh`         | Shared durable wake queue and portable lock helpers sourced by the watcher, drain, arm, guard, and daemon          |
 | `fm-classify-lib.sh`     | Shared captain-relevant wake classifier sourced by the watcher and daemon, plus the watcher's provably-working predicate |
 | `fm-send.sh`             | Send one verified literal line (or `--key Escape`) to a direct-report window; exits non-zero on confirmed swallowed Enter; bare `kind=secondmate` targets are marked as from-firstmate; slash commands and codex `$...` skill invocations get popup-settle before Enter; text sends pause `FM_SEND_SETTLE` seconds after success |
-| `fm-tmux-lib.sh`         | Shared tmux pane primitives for busy detection, dim-ghost-aware and border-aware composer detection, and verified submit retry |
+| `fm-tmux-lib.sh`         | Shared tmux pane primitives for busy detection, dim-ghost-aware and border-aware composer detection, verified submit retry, and the per-home crewmate session name (`fm_tmux_home_session`) |
 | `fm-peek.sh`             | Print a bounded tail of a crewmate pane                                                                             |
 | `fm-pr-check.sh`         | Record `pr=` and a verified `pr_head=` when available for a PR-ready task, then arm the watcher's merge poll        |
 | `fm-promote.sh`          | Promote a scout task in place so it becomes a protected ship task                                                   |

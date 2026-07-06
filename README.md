@@ -69,8 +69,9 @@ Then just talk:
 > alright merge it
 ```
 
-Run it inside tmux for the best experience: launching your harness from inside tmux puts every crewmate window in your own session, where you can watch the crew work in real time or type into any window to intervene.
-Outside tmux, crewmates land in a detached `firstmate` session you can attach to.
+Every crewmate window lands in a tmux session dedicated to this firstmate home, so multiple firstmates on one machine never share windows or clash.
+Run your harness inside that session for the best experience: the crew windows appear alongside you, where you can watch the crew work in real time or type into any window to intervene.
+Run it elsewhere, or outside tmux, and the session is created detached for you to attach to.
 
 ## How It Works
 

@@ -169,7 +169,17 @@ cmd_new() {
     url=$(git -C "$PROJECTS/$p" remote get-url origin)
     echo "cloning $p ..." >&2
     git clone -q "$url" "$home/projects/$p" || die "clone failed for $p"
-    line=$(grep -E "^- $p( |\[)" "$DATA/projects.md" 2>/dev/null | head -1 || true)
+    # Copy the project's registry line, matching the name as a LITERAL prefix
+    # (case globs quote $p, so a name with regex/glob metachars cannot over-match
+    # another line). A registry line is "- <name> ..." or "- <name>[<mode>] ...".
+    line=""
+    if [ -f "$DATA/projects.md" ]; then
+      while IFS= read -r rline; do
+        case "$rline" in
+          "- $p "*|"- $p["*) line="$rline"; break ;;
+        esac
+      done < "$DATA/projects.md"
+    fi
     [ -n "$line" ] && printf '%s\n' "$line" >> "$home/data/projects.md"
   done
 

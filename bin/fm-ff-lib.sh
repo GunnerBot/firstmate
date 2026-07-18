@@ -20,11 +20,24 @@
 # shared default branch or any other worktree's checkout.
 
 SUB_HOME_MARKER="${SUB_HOME_MARKER:-.fm-secondmate-home}"
+PEER_HOME_MARKER="${PEER_HOME_MARKER:-.fm-peer-home}"
 
 # --- helpers ---------------------------------------------------------------
 
 first_line() {
   printf '%s\n' "$1" | sed -n '1s/[[:space:]]\{1,\}/ /g;1p'
+}
+
+# True when dir is a linked git worktree (its git-dir lives under .../worktrees/),
+# as opposed to a primary checkout. A peer or secondmate home is a linked worktree
+# that rests at a detached HEAD and carries an untracked home marker.
+is_linked_worktree() {
+  local dir=$1 gitdir
+  gitdir=$(git -C "$dir" rev-parse --git-dir 2>/dev/null) || return 1
+  case "$gitdir" in
+    */worktrees/*) return 0 ;;
+  esac
+  return 1
 }
 
 default_branch() {
@@ -218,7 +231,8 @@ changed_instr() {
 dirty_status() {
   local dir=$1 ignore_seed_marker=${2:-no}
   if [ "$ignore_seed_marker" = yes ]; then
-    git -C "$dir" status --porcelain 2>/dev/null | awk -v marker="?? $SUB_HOME_MARKER" '$0 != marker { print; exit }'
+    git -C "$dir" status --porcelain 2>/dev/null \
+      | awk -v m1="?? $SUB_HOME_MARKER" -v m2="?? $PEER_HOME_MARKER" '$0 != m1 && $0 != m2 { print; exit }'
   else
     git -C "$dir" status --porcelain 2>/dev/null | head -1
   fi

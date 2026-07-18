@@ -176,7 +176,7 @@ cmd_new() {
     if [ -f "$DATA/projects.md" ]; then
       while IFS= read -r rline; do
         case "$rline" in
-          "- $p "*|"- $p["*) line="$rline"; break ;;
+          "- $p "*|"- ${p}["*) line="$rline"; break ;;
         esac
       done < "$DATA/projects.md"
     fi

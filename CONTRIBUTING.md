@@ -80,7 +80,9 @@ tests/fm-fleet-sync.test.sh               # project clone refresh: safe detached
 tests/fm-x-mode.test.sh                   # X-mode poll, inbox context round-trip, reply threading, dismiss, dry-run preview, and .env-presence activation tests
 tests/fm-tangle-guard.test.sh             # primary-checkout tangle detection and spawn/brief isolation tests
 tests/fm-spawn-batch.test.sh              # batch dispatch and FM_HOME project-path scoping tests
-tests/fm-update.test.sh                   # fast-forward-only self-update, reread, nudge, dedup, and skip-safety tests
+tests/fm-update.test.sh                   # fast-forward-only self-update, reread, nudge, dedup, skip-safety, and detached linked-worktree (peer/secondmate) self-update tests
+tests/fm-home-new.test.sh                 # peer firstmate home create/list: kebab-name and existing-path guards, non-clone project refusal, FM_HOME_MAX sprawl cap, rollback on failure, captain.md/registry-line travel, and .fm-peer-home marker
+
 tests/fm-secondmate-sync.test.sh          # local-HEAD secondmate sync, no-fetch, bootstrap nudge gating, and spawn hook tests
 tests/fm-secondmate-lifecycle-e2e.test.sh # persistent secondmate routing, seeding, backlog handoff, spawn, recovery, teardown, and FM_HOME flow tests
 tests/fm-secondmate-safety.test.sh        # secondmate home safety, idle charter, handoff validation, and teardown boundary tests

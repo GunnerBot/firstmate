@@ -82,6 +82,20 @@ Only a running secondmate home that actually advanced and changed `AGENTS.md`, `
 
 The `data/secondmates.md` line schema and the secondmate environment variables are documented in [configuration.md](configuration.md).
 
+## Peer firstmate homes
+
+A peer home is a co-equal firstmate instance, not a subordinate.
+`bin/fm-home-new.sh <name>` creates one and `bin/fm-home-new.sh --list` lists existing peer homes with their in-flight counts and watcher-beacon age.
+Like a leased secondmate home, a peer home is a linked git worktree of this repo - sharing the object store but nothing mutable - resting at a detached HEAD on the default branch, with fully isolated `state/`, `data/`, `config/`, `projects/`, session lock, watcher, and per-home tmux session.
+The isolation is the point: the session lock sends a second writer in the same home read-only, so parallel firstmates need separate homes and thus have no shared mutable state and no races.
+`data/captain.md` travels to the new home so captain preferences follow, while the harness's own per-cwd memory does not - a fresh home starts with fresh harness memory.
+Named projects clone from their real origin URL so the peer can push, and each project's `data/projects.md` registry line is copied so the peer inherits its delivery mode.
+
+A peer differs from a secondmate by design.
+It is marked with `.fm-peer-home` (never `.fm-secondmate-home`) and is deliberately absent from `data/secondmates.md`, so the main firstmate never routes work to it and the secondmate sweep never claims it.
+It self-updates through `/updatefirstmate` like any home.
+Creation is guarded: it refuses a bad name, an existing path, a name collision with an existing worktree, or exceeding `FM_HOME_MAX` peer homes (default 12, a cap against home sprawl), and rolls back fully on failure.
+
 ## Project modes are explicit
 
 `data/projects.md` records each project's delivery mode and optional `+yolo` autonomy flag.

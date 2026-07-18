@@ -50,7 +50,14 @@ fi
 # --- main firstmate repo ---------------------------------------------------
 
 reread_firstmate="no"
-ff_target "$FM_ROOT" "firstmate" origin no no
+# A linked worktree FM_ROOT is a peer/secondmate-style home: it rests at a
+# detached HEAD and carries an untracked home marker, so allow both. A primary
+# checkout stays strict - a detached or dirty primary means drift and must skip.
+if is_linked_worktree "$FM_ROOT"; then
+  ff_target "$FM_ROOT" "firstmate" origin yes yes
+else
+  ff_target "$FM_ROOT" "firstmate" origin no no
+fi
 if [ "$FF_STATUS" = "updated" ] && [ -n "$FF_INSTR" ]; then
   reread_firstmate="yes"
 fi

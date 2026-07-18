@@ -45,6 +45,9 @@ new_world() {
 
   printf 'v1\n' > "$w/seed/AGENTS.md"
   printf 'r1\n' > "$w/seed/README.md"
+  # Operational dirs are gitignored in a real firstmate repo, so a home's
+  # state/, data/, etc. never dirty its worktree; only unignored home markers do.
+  printf 'state/\ndata/\nconfig/\nprojects/\n' > "$w/seed/.gitignore"
   mkdir -p "$w/seed/bin" "$w/seed/.agents/skills"
   printf 'echo a\n' > "$w/seed/bin/tool.sh"
   printf 's1\n' > "$w/seed/.agents/skills/note.md"
@@ -269,6 +272,34 @@ test_firstmate_detached_head_skipped() {
   pass "T10 firstmate detached HEAD is skipped"
 }
 
+# --- T12: peer home (linked worktree, detached, marked) self-updates --------
+# A peer home is a linked worktree of the firstmate repo, resting at a detached
+# HEAD on the default branch and carrying an untracked .fm-peer-home marker. It
+# self-updates like any home. This fails if either the detached guard OR the
+# dirty-marker guard is left in place on the linked-worktree update path.
+test_peer_home_self_updates() {
+  local w out before
+  w=$(new_world t12)
+  git -C "$w/main" worktree add -q --detach "$w/peer" main
+  printf 'peer\n' > "$w/peer/.fm-peer-home"
+  mkdir -p "$w/peer/state" "$w/peer/data"
+  touch "$w/peer/state/.last-watcher-beat"
+  before=$(git -C "$w/peer" rev-parse HEAD)
+  bump_origin "$w" instr
+
+  out=$(FM_ROOT_OVERRIDE="$w/peer" FM_HOME="$w/peer" "$UPDATE" 2>/dev/null)
+
+  assert_contains "$out" "firstmate: updated " "peer home fast-forwarded"
+  assert_contains "$out" "reread-firstmate: yes" "peer instruction change triggers reread"
+  [ "$(git -C "$w/peer" rev-parse HEAD)" != "$before" ] \
+    || fail "peer HEAD did not advance"
+  [ "$(git -C "$w/peer" rev-parse HEAD)" = "$(git -C "$w/peer" rev-parse origin/main)" ] \
+    || fail "peer HEAD not at origin/main"
+  git -C "$w/peer" symbolic-ref -q HEAD >/dev/null \
+    && fail "peer worktree is no longer detached"
+  pass "T12 peer home (detached, marked) self-updates end to end"
+}
+
 test_unsafe_secondmate_home_skipped_before_git_update() {
   local w out bad before
   w=$(new_world t11)
@@ -299,6 +330,7 @@ test_idempotent_already_current
 test_registry_backstop_dedup_and_self_exclusion
 test_firstmate_wrong_branch_skipped
 test_firstmate_detached_head_skipped
+test_peer_home_self_updates
 test_unsafe_secondmate_home_skipped_before_git_update
 
 echo "# all fm-update tests passed"

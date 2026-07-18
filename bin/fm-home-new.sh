@@ -67,7 +67,7 @@ die() { echo "error: $*" >&2; exit 1; }
 # repo whose root holds a plain-file .fm-peer-home marker.
 list_peer_home_paths() {
   git -C "$FM_ROOT" worktree list --porcelain 2>/dev/null \
-    | awk '/^worktree /{print $2}' \
+    | sed -n 's/^worktree //p' \
     | while IFS= read -r wt; do
         [ -n "$wt" ] || continue
         if [ -f "$wt/$PEER_MARKER" ] && [ ! -L "$wt/$PEER_MARKER" ]; then
@@ -138,6 +138,12 @@ cmd_new() {
   done
 
   mkdir -p "$(dirname "$home")"
+  # Raw `git worktree add`, not a treehouse lease, is safe here: a peer home
+  # lives under $FM_HOMES_BASE (default $HOME/fm), OUTSIDE treehouse's pool
+  # directory (~/.treehouse/). treehouse only ever gets or prunes worktrees
+  # registered inside its own pool namespace, so a peer home is never reclaimed
+  # out from under its captain (verified: `treehouse status` from a peer home
+  # reports an empty pool).
   git -C "$FM_ROOT" worktree add -q --detach "$home" "$default" \
     || die "git worktree add failed for $home"
 

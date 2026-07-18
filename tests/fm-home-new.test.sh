@@ -180,6 +180,29 @@ test_list_excludes_secondmate() {
   pass "T7 --list shows peer homes and excludes secondmate homes"
 }
 
+# --- T8: clone failure AFTER worktree add rolls the whole home back ---------
+# A project that passes pre-validation (local clone with an origin remote) but
+# whose origin is unreachable fails at the clone step, which runs after the
+# worktree has been created. This exercises cleanup_partial firing from the
+# EXIT trap once the worktree exists.
+test_clone_failure_rolls_back() {
+  local w out home
+  w=$(new_world t8)
+  # A local clone whose origin points at a nonexistent bare repo: pre-validation
+  # (remote get-url origin) passes, but the actual clone fails.
+  git clone -q "$w/proj-origin.git" "$w/main/projects/broken"
+  git -C "$w/main/projects/broken" remote set-url origin "$w/does-not-exist.git"
+
+  out=$(run_new "$w" epsilon broken || true)
+  home="$w/homes/epsilon"
+
+  assert_contains "$out" "clone failed for broken" "clone failure reported"
+  assert_absent "$home" "partial home rolled back after worktree add"
+  git -C "$w/main" worktree list --porcelain | grep -q "$home" \
+    && fail "orphan worktree entry left behind after clone failure"
+  pass "T8 clone failure after worktree add rolls the whole home back"
+}
+
 test_create_bare
 test_create_with_project
 test_bad_name_rejected
@@ -187,5 +210,6 @@ test_existing_path_refused
 test_unknown_project_rolled_back
 test_home_cap_enforced
 test_list_excludes_secondmate
+test_clone_failure_rolls_back
 
 echo "# all fm-home-new tests passed"

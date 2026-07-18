@@ -215,6 +215,22 @@ changed_instr() {
   printf '%s' "$out"
 }
 
+# True when dir is a LINKED git worktree rather than a repo's primary checkout.
+# A linked worktree's git dir lives under <common>/worktrees/<name>, while the
+# primary checkout's is the repo's own .git. This is what separates the two
+# legitimate detached-HEAD situations: a firstmate home that is a worktree of
+# this repo (a peer home or a leased secondmate home) rests detached by design
+# and must still fast-forward, whereas a detached PRIMARY checkout is drift and
+# is deliberately left untouched.
+is_linked_worktree() {
+  local dir=$1 gitdir
+  gitdir=$(git -C "$dir" rev-parse --git-dir 2>/dev/null) || return 1
+  case "$gitdir" in
+    */worktrees/*) return 0 ;;
+  esac
+  return 1
+}
+
 dirty_status() {
   local dir=$1 ignore_seed_marker=${2:-no}
   if [ "$ignore_seed_marker" = yes ]; then

@@ -92,6 +92,13 @@ run_update() {
   FM_ROOT_OVERRIDE="$w/main" FM_HOME="$w/home" "$UPDATE" 2>/dev/null
 }
 
+# Run the update against a caller-chosen firstmate checkout, for the peer-home
+# case where FM_ROOT is a linked worktree rather than the primary clone.
+run_update_root() {
+  local w=$1 root=$2
+  FM_ROOT_OVERRIDE="$root" FM_HOME="$w/home" "$UPDATE" 2>/dev/null
+}
+
 # --- T1: main + secondmate behind, instruction change; FF, not a merge ------
 # Combines the former T1 (fast-forward + reread + nudge signalling) and T2
 # (the advance is a single-parent fast-forward, never a merge commit) into one
@@ -269,6 +276,28 @@ test_firstmate_detached_head_skipped() {
   pass "T10 firstmate detached HEAD is skipped"
 }
 
+# --- T12: a peer firstmate home fast-forwards while detached ----------------
+# A peer home is a linked worktree of the firstmate repo, so it is permanently
+# detached: git refuses to check out the default branch the primary checkout
+# holds. It must still self-update, unlike the detached PRIMARY of T10.
+test_peer_home_detached_fast_forwards() {
+  local w out before
+  w=$(new_world t12)
+  git -C "$w/main" worktree add -q --detach "$w/peer" main
+  bump_origin "$w" instr
+  before=$(git -C "$w/peer" rev-parse HEAD)
+
+  out=$(run_update_root "$w" "$w/peer")
+
+  assert_contains "$out" "firstmate: updated " "peer home fast-forwarded"
+  assert_contains "$out" "reread-firstmate: yes" "instruction change triggers reread in peer home"
+  [ "$(git -C "$w/peer" rev-parse HEAD)" != "$before" ] \
+    || fail "peer home HEAD did not advance"
+  git -C "$w/peer" symbolic-ref -q HEAD >/dev/null \
+    && fail "peer home is no longer detached"
+  pass "T12 peer firstmate home fast-forwards while detached"
+}
+
 test_unsafe_secondmate_home_skipped_before_git_update() {
   local w out bad before
   w=$(new_world t11)
@@ -299,6 +328,7 @@ test_idempotent_already_current
 test_registry_backstop_dedup_and_self_exclusion
 test_firstmate_wrong_branch_skipped
 test_firstmate_detached_head_skipped
+test_peer_home_detached_fast_forwards
 test_unsafe_secondmate_home_skipped_before_git_update
 
 echo "# all fm-update tests passed"

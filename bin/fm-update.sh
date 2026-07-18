@@ -49,8 +49,19 @@ fi
 
 # --- main firstmate repo ---------------------------------------------------
 
+# A peer firstmate home is a linked worktree of this repo, so it is permanently
+# detached: git refuses to check out the default branch that the primary
+# checkout already holds. Such a home must still self-update, so detached HEAD
+# is allowed exactly when this checkout is a linked worktree. A detached PRIMARY
+# checkout stays skipped - there it means drift, not a resting state - and the
+# fast-forward guards are unchanged either way: dirty, diverged, or off-default
+# targets are still skipped, never forced.
 reread_firstmate="no"
-ff_target "$FM_ROOT" "firstmate" origin no no
+fm_allow_detached=no
+if is_linked_worktree "$FM_ROOT"; then
+  fm_allow_detached=yes
+fi
+ff_target "$FM_ROOT" "firstmate" origin "$fm_allow_detached" no
 if [ "$FF_STATUS" = "updated" ] && [ -n "$FF_INSTR" ]; then
   reread_firstmate="yes"
 fi
